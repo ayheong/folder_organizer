@@ -21,7 +21,7 @@ export async function call_anthropic(message: string): Promise<string> {
   if (!import.meta.env.VITE_ANTHROPIC_API_KEY) {
     throw new Error("Anthropic API key is not set");
   }
-  
+
   const anthropic = new Anthropic({
     apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY,
     dangerouslyAllowBrowser: true,
@@ -43,7 +43,7 @@ export async function call_anthropic(message: string): Promise<string> {
 function build_organize_prompt(
   file_paths: string[],
   directory_paths: string[],
-  user_ignore_list: string[],
+  user_preferences: string,
 ): string {
   const file_lines = file_paths.map((path) => `- ${path}`).join("\n");
   const dir_lines =
@@ -51,10 +51,7 @@ function build_organize_prompt(
       ? directory_paths.map((path) => `- ${path}/`).join("\n")
       : "- (none — all files are in the root)";
 
-  const ignore_block =
-    user_ignore_list.length > 0
-      ? user_ignore_list.map((pattern) => `- ${pattern}`).join("\n")
-      : "- (none)";
+  const preferences_block = user_preferences.trim() ? user_preferences.trim() : "- (none)";
 
   return `You are a file organization assistant. Propose a practical plan to tidy this folder.
 
@@ -84,11 +81,11 @@ Example (illustrative paths only):
 5. Skip system or hidden files (desktop.ini, .DS_Store, Thumbs.db).
 6. Use lowercase, hyphenated names for new folders and renamed files (e.g. tax-documents, meeting-notes.md).
 7. Prefer fewer, meaningful moves over renaming everything.
-8. Do not propose changes for ignored patterns.
+8. Follow the user preferences below when proposing changes. If they name paths, folders, or patterns to leave alone, do not propose changes for matching files.
 9. Do not use ".." or absolute paths.
 
-## Ignore patterns
-${ignore_block}
+## User preferences
+${preferences_block}
 
 ## Existing directories
 ${dir_lines}
@@ -99,7 +96,7 @@ ${file_lines}`;
 
 export async function organize_folder(
   folderContents: TreeNode[],
-  user_ignore_list: string[],
+  user_preferences: string,
 ): Promise<OrganizeResult> {
   const file_paths = flatten_tree_to_file_paths(folderContents);  // get all file paths
   const directory_paths = list_directory_paths(folderContents);  // get all directory paths
@@ -108,7 +105,7 @@ export async function organize_folder(
     return { changes: [] };  // if no files, return empty changes
   }
 
-  const message = build_organize_prompt(file_paths, directory_paths, user_ignore_list);  // generate prompt
+  const message = build_organize_prompt(file_paths, directory_paths, user_preferences);
 
   const response = await call_anthropic(message);  // call anthropic
   const cleaned = response.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();  // clean response

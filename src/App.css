@@ -315,46 +315,49 @@ body,
   min-height: 0.5rem;
 }
 
-.panel-controls__ignore {
+.panel-controls__preferences {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
 }
 
-.panel-controls__ignore-label {
+.panel-controls__preferences-label {
   font-size: clamp(0.72rem, 0.68rem + 0.15vw, 0.8rem);
   font-weight: 500;
   color: #b1bac4;
 }
 
-.panel-controls__ignore-input {
+.panel-controls__preferences-input {
   box-sizing: border-box;
   width: 100%;
+  min-height: 4.5rem;
+  resize: vertical;
   border-radius: 6px;
   border: 1px solid #33353c;
   padding: 0.5rem 0.6rem;
   font-family: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Monaco, Consolas, monospace;
   font-size: clamp(0.78rem, 0.74rem + 0.18vw, 0.86rem);
+  line-height: 1.45;
   color: #e6edf3;
   background: #1a1c21;
   outline: none;
   transition: border-color 0.12s ease;
 }
 
-.panel-controls__ignore-input::placeholder {
+.panel-controls__preferences-input::placeholder {
   color: #555b66;
 }
 
-.panel-controls__ignore-input:focus {
+.panel-controls__preferences-input:focus {
   border-color: #4a4e58;
 }
 
-.panel-controls__ignore-input:disabled {
+.panel-controls__preferences-input:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
 
-.panel-controls__ignore-hint {
+.panel-controls__preferences-hint {
   margin: 0;
   font-size: clamp(0.68rem, 0.64rem + 0.15vw, 0.76rem);
   line-height: clamp(1.4, calc(1.36 + 0.08vw), 1.5);

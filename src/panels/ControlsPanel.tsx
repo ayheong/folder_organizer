@@ -12,8 +12,8 @@ type ControlsPanelProps = {
   dirCount: number;
   folderTotalBytes: number | null;
   totalSizeLabel: string;
-  ignorePatterns: string;
-  onIgnorePatternsChange: (value: string) => void;
+  userPreferences: string;
+  onUserPreferencesChange: (value: string) => void;
   onOrganize: () => void;
   isProposingChanges: boolean;
   isApplyingChanges: boolean;
@@ -30,8 +30,8 @@ export function ControlsPanel({
   dirCount,
   folderTotalBytes,
   totalSizeLabel,
-  ignorePatterns,
-  onIgnorePatternsChange,
+  userPreferences,
+  onUserPreferencesChange,
   onOrganize,
   isProposingChanges,
   isApplyingChanges,
@@ -106,7 +106,7 @@ export function ControlsPanel({
 
       {showStats && scanTruncated ? (
         <p className="panel-controls__limit-msg panel-controls__limit-msg--error" role="alert">
-          Scan stopped at {MAX_FILES_TO_ORGANIZE} files. Choose a smaller folder or add ignore patterns.
+          Scan stopped at {MAX_FILES_TO_ORGANIZE} files. Choose a smaller folder or modify your preferences.
         </p>
       ) : null}
       {overFileLimit ? (
@@ -122,23 +122,23 @@ export function ControlsPanel({
 
       <div className="panel-controls__fill" aria-hidden />
 
-      <div className="panel-controls__ignore">
-        <label className="panel-controls__ignore-label" htmlFor="ignore-patterns-input">
-          Ignore patterns
+      <div className="panel-controls__preferences">
+        <label className="panel-controls__preferences-label" htmlFor="user-preferences-input">
+          User preferences
         </label>
-        <input
-          id="ignore-patterns-input"
-          type="text"
-          className="panel-controls__ignore-input"
-          placeholder="e.g. desktop.ini, .DS_Store"
-          value={ignorePatterns}
-          onChange={(e) => onIgnorePatternsChange(e.target.value)}
+        <textarea
+          id="user-preferences-input"
+          className="panel-controls__preferences-input"
+          placeholder="e.g. skip node_modules and .git; group photos by year; don't delete anything"
+          value={userPreferences}
+          onChange={(e) => onUserPreferencesChange(e.target.value)}
+          rows={3}
           autoComplete="off"
           spellCheck={false}
           disabled={busy}
         />
-        <p className="panel-controls__ignore-hint">
-          Comma-separated names or globs. Matching files are skipped when planning changes.
+        <p className="panel-controls__preferences-hint">
+          Optional notes for the model: paths to leave alone, how to group files, or other rules.
         </p>
       </div>
 

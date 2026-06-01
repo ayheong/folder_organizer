@@ -80,7 +80,7 @@ function App() {
   const [scanLineTyped, setScanLineTyped] = useState("");
   const [filesFoundCount, setFilesFoundCount] = useState(0);
   const [folderTotalBytes, setFolderTotalBytes] = useState<number | null>(null);
-  const [ignorePatterns, setIgnorePatterns] = useState("");
+  const [userPreferences, setUserPreferences] = useState("");
   const [organizeResult, setOrganizeResult] = useState<OrganizeResult | null>(null);
   const [isProposingChanges, setIsProposingChanges] = useState(false);
   const [isApplyingChanges, setIsApplyingChanges] = useState(false);
@@ -218,10 +218,7 @@ function App() {
     setOrganizeResult(null);
     setIsProposingChanges(true);
     try {
-      const result = await organize_folder(
-        folderContents,
-        ignorePatterns.split(",").map((p) => p.trim()).filter(Boolean),
-      );
+      const result = await organize_folder(folderContents, userPreferences);
       setOrganizeResult(result);
     } catch (e) {
       console.error(e);
@@ -303,8 +300,8 @@ function App() {
         dirCount={tree_stats.dirs}
         folderTotalBytes={folderTotalBytes}
         totalSizeLabel={totalSizeLabel}
-        ignorePatterns={ignorePatterns}
-        onIgnorePatternsChange={setIgnorePatterns}
+        userPreferences={userPreferences}
+        onUserPreferencesChange={setUserPreferences}
         onOrganize={organize_folder_click}
         isProposingChanges={isProposingChanges}
         isApplyingChanges={isApplyingChanges}
