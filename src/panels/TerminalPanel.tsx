@@ -1,10 +1,12 @@
 import { Fragment, type ReactNode } from "react";
 import { ROOT_TREE_KEY, SCAN_TYPING_LINE } from "../constants";
+import { next_tree_reveal_style, with_tree_reveal_class } from "../lib/treeReveal";
 import type { TreeNode } from "../types";
 
 type TerminalPanelProps = {
   scanLineTyped: string;
   isScanningFolder: boolean;
+  isTreeRevealing?: boolean;
   filesFoundCount: number;
   rootTreeLabel: string;
   folderContents: TreeNode[];
@@ -22,6 +24,8 @@ function render_tree_lines(
   path_prefix: string,
   collapsedKeys: Set<string>,
   onToggleTreeNode: (key: string) => void,
+  isTreeRevealing: boolean,
+  line_index: { current: number },
 ): ReactNode {
   return nodes.map((node, index) => {
     const is_last = index === nodes.length - 1;
@@ -48,7 +52,10 @@ function render_tree_lines(
 
     return (
       <Fragment key={key}>
-        <div className="terminal-tree-line">
+        <div
+          className={with_tree_reveal_class(isTreeRevealing, "terminal-tree-line")}
+          style={next_tree_reveal_style(isTreeRevealing, line_index)}
+        >
           <span className="terminal-tree-line__glyphs">
             {ancestor_prefix}
             {branch}
@@ -79,6 +86,8 @@ function render_tree_lines(
               `${key}/`,
               collapsedKeys,
               onToggleTreeNode,
+              isTreeRevealing,
+              line_index,
             )
           : null}
       </Fragment>
@@ -89,6 +98,7 @@ function render_tree_lines(
 export function TerminalPanel({
   scanLineTyped,
   isScanningFolder,
+  isTreeRevealing = false,
   filesFoundCount,
   rootTreeLabel,
   folderContents,
@@ -98,7 +108,7 @@ export function TerminalPanel({
   const root_has_children = rootTreeLabel !== "" && folderContents.length > 0;
   const root_expanded =
     rootTreeLabel !== "" && is_tree_node_expanded(collapsedKeys, ROOT_TREE_KEY);
-
+  const line_index = { current: 0 };
   return (
     <section className="panel panel--terminal" aria-label="Folder tree output">
       <header className="panel-terminal__titlebar">
@@ -144,8 +154,20 @@ export function TerminalPanel({
             <span className="panel-terminal__muted">Select a folder to list contents…</span>
           </p>
         ) : (
-          <>
-            <div className="terminal-tree-line terminal-tree-line--root">
+          <div
+            className={
+              isTreeRevealing
+                ? "panel-terminal__tree panel-terminal__tree--revealing"
+                : "panel-terminal__tree"
+            }
+          >
+            <div
+              className={with_tree_reveal_class(
+                isTreeRevealing,
+                "terminal-tree-line terminal-tree-line--root",
+              )}
+              style={next_tree_reveal_style(isTreeRevealing, line_index)}
+            >
               {root_has_children ? (
                 <button
                   type="button"
@@ -166,9 +188,17 @@ export function TerminalPanel({
               </span>
             </div>
             {root_has_children && root_expanded
-              ? render_tree_lines(folderContents, "", "", collapsedKeys, onToggleTreeNode)
+              ? render_tree_lines(
+                  folderContents,
+                  "",
+                  "",
+                  collapsedKeys,
+                  onToggleTreeNode,
+                  isTreeRevealing,
+                  line_index,
+                )
               : null}
-          </>
+          </div>
         )}
         {rootTreeLabel === "" && !isScanningFolder ? (
           <span className="panel-terminal__cursor" aria-hidden>

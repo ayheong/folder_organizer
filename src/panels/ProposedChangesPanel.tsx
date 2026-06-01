@@ -1,5 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ApplyChangesResult } from "../lib/applyChanges";
+import {
+  build_proposed_changes_tree,
+  count_visible_proposed_tree_lines,
+  initial_proposed_tree_collapsed_keys,
+} from "../lib/proposedChangesTree";
+import { tree_reveal_animation_ms } from "../lib/terminalTreeLines";
 import type { Change, OrganizeResult } from "../types";
 import { ProposedChangesTreeView } from "./ProposedChangesTree";
 
@@ -29,9 +35,17 @@ export function ProposedChangesPanel({
   const proposed_changes = organizeResult?.changes ?? [];
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [cursor_popout, setCursorPopout] = useState<{ x: number; y: number } | null>(null);
+  const [isTreeRevealing, setIsTreeRevealing] = useState(false);
+  const proposed_tree = useMemo(
+    () => (proposed_changes.length > 0 ? build_proposed_changes_tree(proposed_changes) : null),
+    [proposed_changes],
+  );
   const selected_count = selectedIds.size;
   const total_count = proposed_changes.length;
   const busy = isProposingChanges || isApplyingChanges;
+  const has_proposal = Boolean(organizeResult);
+  const show_propose_first_hint = Boolean(selectedFolder) && !has_proposal && !busy;
 
   const title_suffix = isApplyingChanges
     ? " — applying…"
@@ -47,11 +61,51 @@ export function ProposedChangesPanel({
     );
   }, [organizeResult]);
 
+  useEffect(() => {
+    if (!show_propose_first_hint) {
+      setCursorPopout(null);
+    }
+  }, [show_propose_first_hint]);
+
+  useEffect(() => {
+    if (!organizeResult || proposed_changes.length === 0) {
+      setIsTreeRevealing(false);
+      return;
+    }
+    setIsTreeRevealing(true);
+  }, [organizeResult, proposed_changes.length]);
+
+  useEffect(() => {
+    if (!isTreeRevealing || !proposed_tree) return;
+    const collapsed = initial_proposed_tree_collapsed_keys(proposed_tree);
+    const line_count = count_visible_proposed_tree_lines(proposed_tree, collapsed);
+    const id = window.setTimeout(
+      () => setIsTreeRevealing(false),
+      tree_reveal_animation_ms(line_count),
+    );
+    return () => window.clearTimeout(id);
+  }, [isTreeRevealing, proposed_tree]);
+
+  function update_cursor_popout(event: React.MouseEvent) {
+    setCursorPopout({ x: event.clientX, y: event.clientY });
+  }
+
   function toggle_selected(id: string) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      return next;
+    });
+  }
+
+  function set_ids_selected(ids: string[], selected: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) {
+        if (selected) next.add(id);
+        else next.delete(id);
+      }
       return next;
     });
   }
@@ -81,7 +135,7 @@ export function ProposedChangesPanel({
           {isApplyingChanges ? (
             <p className="panel-changes__proposing-hint">Applying selected changes to disk…</p>
           ) : isProposingChanges ? (
-            <p className="panel-changes__proposing-hint">
+            <p className="panel-changes__proposing-hint panel-changes__proposing-hint--pulse">
               We are teaching the AI your file organization preferences... Your brand spanking new folder will be ready in just a moment!
             </p>
           ) : !selectedFolder ? (
@@ -97,7 +151,9 @@ export function ProposedChangesPanel({
               changes={proposed_changes}
               selectedIds={selectedIds}
               onToggle={toggle_selected}
+              onSetSelection={set_ids_selected}
               disabled={busy}
+              isTreeRevealing={isTreeRevealing}
             />
           ) : organizeResult ? (
             <p className="panel-changes__placeholder">The model returned no changes. It seems your folder is already well organized! 😊</p>
@@ -129,33 +185,58 @@ export function ProposedChangesPanel({
             </p>
           ) : null}
         </div>
-        <footer className="panel-changes__footer">
-          {organizeResult ? (
+        <footer
+          className={
+            show_propose_first_hint
+              ? "panel-changes__footer panel-changes__footer--awaiting-proposal"
+              : "panel-changes__footer"
+          }
+        >
+          {has_proposal ? (
             <span className="panel-changes__selected-count" aria-live="polite">
               {selected_count} of {total_count} selected
             </span>
           ) : null}
-          <button
-            type="button"
-            className="panel-changes__btn panel-changes__btn--reject"
-            onClick={onReject}
-            disabled={busy || !organizeResult}
+          <div
+            className="panel-changes__footer-actions"
+            onMouseEnter={show_propose_first_hint ? update_cursor_popout : undefined}
+            onMouseMove={show_propose_first_hint ? update_cursor_popout : undefined}
+            onMouseLeave={show_propose_first_hint ? () => setCursorPopout(null) : undefined}
           >
-            Reject
-          </button>
-          <button
-            type="button"
-            className="panel-changes__btn panel-changes__btn--accept"
-            disabled={busy || selected_count === 0 || !organizeResult}
-            onClick={accept_click}
-          >
-            {isApplyingChanges
-              ? "Applying…"
-              : selected_count === total_count
-                ? "Accept all"
-                : `Accept selected (${selected_count})`}
-          </button>
+            <button
+              type="button"
+              className="panel-changes__btn panel-changes__btn--reject"
+              onClick={onReject}
+              disabled={busy || !has_proposal}
+            >
+              Reject
+            </button>
+            <button
+              type="button"
+              className="panel-changes__btn panel-changes__btn--accept"
+              disabled={busy || !has_proposal || selected_count === 0}
+              onClick={accept_click}
+            >
+              {isApplyingChanges
+                ? "Applying…"
+                : selected_count === total_count
+                  ? "Accept all"
+                  : `Accept selected (${selected_count})`}
+            </button>
+          </div>
         </footer>
+        {show_propose_first_hint && cursor_popout ? (
+          <p
+            className="panel-changes__footer-popout panel-changes__footer-popout--at-cursor"
+            role="tooltip"
+            style={{
+              left: cursor_popout.x + 14,
+              top: cursor_popout.y + 14,
+            }}
+          >
+            Click <strong>Propose changes</strong> first.
+          </p>
+        ) : null}
       </div>
     </section>
   );

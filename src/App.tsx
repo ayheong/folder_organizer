@@ -2,7 +2,17 @@ import { useEffect, useMemo, useState } from "react";
 import { basename, join } from "@tauri-apps/api/path";
 import { confirm, open } from "@tauri-apps/plugin-dialog";
 import { readDir, size } from "@tauri-apps/plugin-fs";
-import { SCAN_TYPING_LINE, MAX_FILES_TO_ORGANIZE, DEFAULT_SKIP_DIR_NAME_SET } from "./constants";
+import {
+  SCAN_TYPING_LINE,
+  SCAN_TYPING_MS_PER_CHAR,
+  SCAN_MIN_DISPLAY_MS,
+  MAX_FILES_TO_ORGANIZE,
+  DEFAULT_SKIP_DIR_NAME_SET,
+} from "./constants";
+import {
+  count_visible_terminal_tree_lines,
+  tree_reveal_animation_ms,
+} from "./lib/terminalTreeLines";
 import { ControlsPanel } from "./panels/ControlsPanel";
 import { ProposedChangesPanel } from "./panels/ProposedChangesPanel";
 import { TerminalPanel } from "./panels/TerminalPanel";
@@ -88,6 +98,7 @@ function App() {
   const [applyError, setApplyError] = useState<string | null>(null);
   const [proposeError, setProposeError] = useState<string | null>(null);
   const [scanTruncated, setScanTruncated] = useState(false);
+  const [isTreeRevealing, setIsTreeRevealing] = useState(false);
 
   useEffect(() => {
     if (!isScanningFolder) {
@@ -100,17 +111,33 @@ function App() {
       i += 1;
       setScanLineTyped(SCAN_TYPING_LINE.slice(0, i));
       if (i >= SCAN_TYPING_LINE.length) window.clearInterval(id);
-    }, 40);
+    }, SCAN_TYPING_MS_PER_CHAR);
     return () => window.clearInterval(id);
   }, [isScanningFolder]);
 
+  useEffect(() => {
+    if (!isTreeRevealing) return;
+    const line_count = count_visible_terminal_tree_lines(
+      folderContents,
+      collapsedKeys,
+      rootTreeLabel,
+    );
+    const id = window.setTimeout(
+      () => setIsTreeRevealing(false),
+      tree_reveal_animation_ms(line_count),
+    );
+    return () => window.clearTimeout(id);
+  }, [isTreeRevealing, folderContents, collapsedKeys, rootTreeLabel]);
+
   async function rescan_selected_folder(path: string) {
+    setIsTreeRevealing(false);
     setFolderContents([]);
     setCollapsedKeys(new Set());
     setFilesFoundCount(0);
     setFolderTotalBytes(null);
     setScanTruncated(false);
     setIsScanningFolder(true);
+    const scan_started_at = Date.now();
 
     const scan: FolderScanState = { fileCount: 0, stopped: false, truncated: false };
     let raf_flush: number = 0;
@@ -145,7 +172,14 @@ function App() {
         setFolderTotalBytes(null);
       }
     } finally {
+      const typing_ms = SCAN_TYPING_LINE.length * SCAN_TYPING_MS_PER_CHAR;
+      const min_display_ms = Math.max(SCAN_MIN_DISPLAY_MS, typing_ms + 320);
+      const elapsed = Date.now() - scan_started_at;
+      if (elapsed < min_display_ms) {
+        await new Promise((resolve) => window.setTimeout(resolve, min_display_ms - elapsed));
+      }
       setIsScanningFolder(false);
+      setIsTreeRevealing(true);
     }
   }
 
@@ -311,6 +345,7 @@ function App() {
       <TerminalPanel
         scanLineTyped={scanLineTyped}
         isScanningFolder={isScanningFolder}
+        isTreeRevealing={isTreeRevealing}
         filesFoundCount={filesFoundCount}
         rootTreeLabel={rootTreeLabel}
         folderContents={folderContents}

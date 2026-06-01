@@ -103,6 +103,87 @@ export function build_proposed_changes_tree(changes: Change[]): ProposedChangesT
   return { folders, rootFiles, deletions };
 }
 
+export function collect_folder_leaf_ids(folder: ProposedChangeFolder): string[] {
+  const ids: string[] = [];
+  for (const file of folder.files) {
+    ids.push(file.id);
+  }
+  for (const child of folder.folders) {
+    ids.push(...collect_folder_leaf_ids(child));
+  }
+  return ids;
+}
+
+export function collect_proposed_tree_leaf_ids(tree: ProposedChangesTree): string[] {
+  const ids: string[] = [];
+  for (const folder of tree.folders) {
+    ids.push(...collect_folder_leaf_ids(folder));
+  }
+  for (const file of tree.rootFiles) {
+    ids.push(file.id);
+  }
+  for (const file of tree.deletions) {
+    ids.push(file.id);
+  }
+  return ids;
+}
+
+export type FolderSelectionState = "all" | "none" | "partial";
+
+export function folder_selection_state(
+  leaf_ids: string[],
+  selectedIds: Set<string>,
+): FolderSelectionState {
+  if (leaf_ids.length === 0) return "all";
+  let selected_count = 0;
+  for (const id of leaf_ids) {
+    if (selectedIds.has(id)) selected_count += 1;
+  }
+  if (selected_count === 0) return "none";
+  if (selected_count === leaf_ids.length) return "all";
+  return "partial";
+}
+
+export function initial_proposed_tree_collapsed_keys(tree: ProposedChangesTree): Set<string> {
+  return new Set(
+    collect_proposed_folder_keys(tree).filter((key) => key !== "proposed:root"),
+  );
+}
+
+/** Matches visible rows in ProposedChangesTreeView for the current collapse state. */
+export function count_visible_proposed_tree_lines(
+  tree: ProposedChangesTree,
+  collapsedKeys: Set<string>,
+): number {
+  let count = 1;
+  if (collapsedKeys.has("proposed:root")) return count;
+
+  function walk_folders(folders: ProposedChangeFolder[], key_prefix: string): number {
+    let n = 0;
+    for (const folder of folders) {
+      const key = `${key_prefix}/${folder.fullPath}`;
+      n += 1;
+      if (!collapsedKeys.has(key)) {
+        n += walk_folders(folder.folders, key_prefix);
+        n += folder.files.length;
+      }
+    }
+    return n;
+  }
+
+  count += walk_folders(tree.folders, "proposed");
+  count += tree.rootFiles.length;
+
+  if (tree.deletions.length > 0) {
+    count += 1;
+    if (!collapsedKeys.has("proposed:deletions")) {
+      count += tree.deletions.length;
+    }
+  }
+
+  return count;
+}
+
 export function collect_proposed_folder_keys(tree: ProposedChangesTree): string[] {
   const keys: string[] = ["proposed:root"];
 
