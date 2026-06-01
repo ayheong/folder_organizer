@@ -18,6 +18,10 @@ function text_from_content(
 }
 
 export async function call_anthropic(message: string): Promise<string> {
+  if (!import.meta.env.VITE_ANTHROPIC_API_KEY) {
+    throw new Error("Anthropic API key is not set");
+  }
+  
   const anthropic = new Anthropic({
     apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY,
     dangerouslyAllowBrowser: true,

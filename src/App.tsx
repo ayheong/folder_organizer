@@ -86,6 +86,7 @@ function App() {
   const [isApplyingChanges, setIsApplyingChanges] = useState(false);
   const [applyReport, setApplyReport] = useState<ApplyChangesResult | null>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
+  const [proposeError, setProposeError] = useState<string | null>(null);
   const [scanTruncated, setScanTruncated] = useState(false);
 
   useEffect(() => {
@@ -157,6 +158,7 @@ function App() {
       const path = folder as string;
       setSelectedFolder(path);
       setOrganizeResult(null);
+      setProposeError(null);
       setApplyReport(null);
       setApplyError(null);
       await rescan_selected_folder(path);
@@ -212,6 +214,8 @@ function App() {
     }
     setApplyReport(null);
     setApplyError(null);
+    setProposeError(null);
+    setOrganizeResult(null);
     setIsProposingChanges(true);
     try {
       const result = await organize_folder(
@@ -221,6 +225,9 @@ function App() {
       setOrganizeResult(result);
     } catch (e) {
       console.error(e);
+      setProposeError(
+        e instanceof Error ? e.message : "Failed to propose changes.",
+      );
     } finally {
       setIsProposingChanges(false);
     }
@@ -267,6 +274,7 @@ function App() {
 
   function reject_proposed_changes() {
     setOrganizeResult(null);
+    setProposeError(null);
     setApplyReport(null);
     setApplyError(null);
   }
@@ -319,6 +327,7 @@ function App() {
         selectedFolder={selectedFolder}
         applyReport={applyReport}
         applyError={applyError}
+        proposeError={proposeError}
         onAccept={apply_changes_click}
         onReject={reject_proposed_changes}
       />

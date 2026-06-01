@@ -49,6 +49,7 @@ type ProposedChangesPanelProps = {
   selectedFolder?: string;
   applyReport?: ApplyChangesResult | null;
   applyError?: string | null;
+  proposeError?: string | null;
   onAccept: (selectedChanges: Change[]) => void;
   onReject: () => void;
 };
@@ -60,6 +61,7 @@ export function ProposedChangesPanel({
   selectedFolder = "",
   applyReport = null,
   applyError = null,
+  proposeError = null,
   onAccept,
   onReject,
 }: ProposedChangesPanelProps) {
@@ -120,20 +122,30 @@ export function ProposedChangesPanel({
           {isApplyingChanges ? (
             <p className="panel-changes__proposing-hint">Applying selected changes to disk…</p>
           ) : isProposingChanges ? (
-            <p className="panel-changes__proposing-hint">Asking the model for a proposal…</p>
+            <p className="panel-changes__proposing-hint">
+              We are teaching the AI your file organization preferences... Your brand spanking new folder will be ready in just a moment!
+            </p>
           ) : !selectedFolder ? (
             <p className="panel-changes__placeholder">
               Select a folder and click "Propose changes" to propose changes…
             </p>
-          ) : organizeResult ? (
+          ) : proposeError ? (
+            <p className="panel-changes__apply-msg panel-changes__apply-msg--error" role="alert">
+              {proposeError}
+            </p>
+          ) : organizeResult && proposed_changes_rows.length > 0? (
             <ChangesSection
               rows={proposed_changes_rows}
               selectedIds={selectedIds}
               onToggle={toggle_selected}
               disabled={busy}
             />
+          ) : organizeResult ? (
+            <p className="panel-changes__placeholder">The model returned no changes. It seems your folder is already well organized! 😊</p>
           ) : applyReport || applyError ? null : (
-            <p className="panel-changes__placeholder">No proposed changes yet.</p>
+            <p className="panel-changes__placeholder">
+              Click "Propose changes" to generate an organization plan for this folder.
+            </p>
           )}
 
           {applyError ? (
