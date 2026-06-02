@@ -67,6 +67,10 @@ function ProposedChangeFolderLine({
   const selection = folder_selection_state(leaf_ids, selectedIds);
   const all_selected = selection === "all";
   const can_select = leaf_ids.length > 0 && !disabled;
+  const folder_hit_class =
+    selection === "none"
+      ? "panel-changes__tree-folder-hit panel-changes__tree-folder-hit--none-selected"
+      : "panel-changes__tree-folder-hit";
 
   return (
     <div
@@ -99,7 +103,7 @@ function ProposedChangeFolderLine({
       )}
       <button
         type="button"
-        className="panel-changes__tree-folder-hit"
+        className={folder_hit_class}
         aria-pressed={all_selected}
         aria-label={`${all_selected ? "Exclude" : "Include"} all changes in ${label}`}
         title={

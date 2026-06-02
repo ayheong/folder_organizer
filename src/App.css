@@ -235,6 +235,7 @@ select {
   grid-template-columns: 1fr 1fr;
   gap: 0;
   padding: 3px;
+  margin-top: 0.35rem;
   border-radius: 8px;
   border: 1px solid #30363d;
   background: #161b22;
@@ -242,6 +243,7 @@ select {
 }
 
 .panel-controls__provider-btn {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -303,6 +305,26 @@ select {
   font-weight: 600;
   letter-spacing: 0.01em;
   line-height: 1;
+}
+
+.panel-controls__provider-recommended {
+  position: absolute;
+  top: -0.45rem;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.12rem 0.38rem;
+  border-radius: 4px;
+  border: 1px solid #3fb95055;
+  background: #238636;
+  color: #aff5b4;
+  font-size: clamp(0.52rem, 0.5rem + 0.08vw, 0.58rem);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.15;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
 }
 
 .panel-controls__api-key,
@@ -437,13 +459,6 @@ select {
   color: #e6edf3;
 }
 
-.panel-controls__ollama-recommend-blurb {
-  margin: 0 0 0.35rem;
-  font-size: clamp(0.65rem, 0.62rem + 0.12vw, 0.72rem);
-  line-height: 1.35;
-  color: #8b949e;
-}
-
 .panel-controls__ollama-recommend-label {
   margin: 0 0 0.2rem;
   font-size: clamp(0.65rem, 0.62rem + 0.1vw, 0.72rem);
@@ -465,6 +480,13 @@ select {
   font-size: clamp(0.68rem, 0.64rem + 0.12vw, 0.76rem);
   color: #79c0ff;
   word-break: break-all;
+}
+
+.panel-controls__ollama-recommend-specs {
+  margin: 0 0 0.35rem;
+  font-size: clamp(0.62rem, 0.59rem + 0.1vw, 0.68rem);
+  line-height: 1.45;
+  color: #8b949e;
 }
 
 .panel-controls__ollama-alternatives {
@@ -503,9 +525,10 @@ select {
 
 .panel-controls__ollama-alternatives-size {
   display: block;
-  margin-top: 0.08rem;
-  font-size: clamp(0.62rem, 0.59rem + 0.08vw, 0.68rem);
+  margin-top: 0.12rem;
+  font-size: clamp(0.6rem, 0.57rem + 0.08vw, 0.66rem);
   font-weight: 400;
+  line-height: 1.45;
   color: #6e7681;
 }
 
@@ -820,6 +843,11 @@ select {
 .panel-changes__tree-folder-hit:focus-visible {
   outline: 1px solid #58a6ff;
   outline-offset: 1px;
+}
+
+.panel-changes__tree-folder-hit--none-selected .terminal-tree-line__icon--dir,
+.panel-changes__tree-folder-hit--none-selected .terminal-tree-line__name--dir {
+  color: #4a6a8a;
 }
 
 .panel-changes__tree-line--file {

@@ -5,9 +5,10 @@ import {
   list_directory_paths,
   normalize_changes_against_index,
 } from "./folderPaths";
+import { log_organize_timing, ns_to_ms } from "./organizeTiming";
 import { call_ollama } from "./ollama";
 import type { TreeNode } from "../types";
-import type { OrganizeResult } from "../types";
+import type { OrganizeResult, OrganizeTiming } from "../types";
 
 export type OrganizeModelHost = "claude" | "ollama";
 
@@ -111,18 +112,52 @@ ${dir_lines}
 ${file_lines}`;
 }
 
+type OrganizeModelResponse = {
+  text: string;
+  timing: Pick<OrganizeTiming, "host" | "model" | "ollama">;
+};
+
 async function call_organize_model(
   message: string,
   options: OrganizeFolderOptions,
-): Promise<string> {
+): Promise<OrganizeModelResponse> {
   if (options.host === "ollama") {
-    return call_ollama(
+    const result = await call_ollama(
       message,
       options.ollama_model,
       options.ollama_installed_models,
     );
+    const metrics = result.metrics;
+    const prompt_eval_ms = ns_to_ms(metrics.prompt_eval_duration) ?? 0;
+    const eval_ms = ns_to_ms(metrics.eval_duration) ?? 0;
+    const prompt_tokens = metrics.prompt_eval_count ?? 0;
+    const output_tokens = metrics.eval_count ?? 0;
+    return {
+      text: result.content,
+      timing: {
+        host: "ollama",
+        model: result.model,
+        ollama: {
+          load_ms: ns_to_ms(metrics.load_duration) ?? 0,
+          prompt_eval_ms,
+          prompt_tokens,
+          prompt_tokens_per_sec:
+            prompt_eval_ms > 0 && prompt_tokens > 0
+              ? (prompt_tokens / prompt_eval_ms) * 1000
+              : undefined,
+          eval_ms,
+          output_tokens,
+          tokens_per_sec:
+            eval_ms > 0 && output_tokens > 0 ? (output_tokens / eval_ms) * 1000 : undefined,
+          total_ms: ns_to_ms(metrics.total_duration) ?? 0,
+        },
+      },
+    };
   }
-  return call_anthropic(message, options.claude_api_key ?? "");
+  return {
+    text: await call_anthropic(message, options.claude_api_key ?? ""),
+    timing: { host: "claude", model: "claude-sonnet-4-5" },
+  };
 }
 
 export async function organize_folder(
@@ -138,8 +173,13 @@ export async function organize_folder(
   }
 
   const message = build_organize_prompt(file_paths, directory_paths, user_preferences);
-  const response = await call_organize_model(message, options);
-  const cleaned = response.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+  const wall_start = performance.now();
+  const model_response = await call_organize_model(message, options);
+  const wall_ms = performance.now() - wall_start;
+  const cleaned = model_response.text
+    .replace(/```json\n?/g, "")
+    .replace(/```\n?/g, "")
+    .trim();
 
   try {
     const parsed = JSON.parse(cleaned) as OrganizeResult;
@@ -151,7 +191,14 @@ export async function organize_folder(
     if (unresolved.length > 0) {
       console.warn("Skipped changes with unknown source paths:", unresolved);
     }
-    return { changes };
+    const timing: OrganizeTiming = {
+      ...model_response.timing,
+      file_count: file_paths.length,
+      prompt_chars: message.length,
+      wall_ms,
+    };
+    log_organize_timing(timing);
+    return { changes, timing };
   } catch {
     throw new Error("Failed to parse JSON response from the model");
   }

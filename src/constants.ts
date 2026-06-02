@@ -1,3 +1,7 @@
+/** User-facing product name (window title, sidebar header). */
+export const APP_DISPLAY_NAME = "Neatnet";
+export const APP_TAGLINE = "AI-assisted folder organization";
+
 export const ROOT_TREE_KEY = "__root__";
 export const SCAN_TYPING_LINE = "Scanning folder…";
 

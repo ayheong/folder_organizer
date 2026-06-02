@@ -27,10 +27,7 @@ import {
 } from "./lib/claudeApiKey";
 import type { Change, OrganizeResult, TreeNode } from "./types";
 import "./App.css";
-import {
-  list_ollama_model_infos,
-  pick_strongest_ollama_model,
-} from "./lib/ollama";
+import { list_ollama_model_infos } from "./lib/ollama";
 import type { OrganizeModelHost } from "./lib/claude";
 
 type FolderScanProgress = {
@@ -156,9 +153,7 @@ function App() {
         const names = models.map((m) => m.name);
         setOllamaModels(names);
         setSelectedOllamaModel((current) =>
-          current && names.includes(current)
-            ? current
-            : pick_strongest_ollama_model(models),
+          current && names.includes(current) ? current : "",
         );
       })
       .catch((e) => {

@@ -1,51 +1,31 @@
-function parse_param_billions(name: string): number {
-  const match = name.match(/(\d+(?:\.\d+)?)\s*b/i);
-  return match ? Number.parseFloat(match[1]) : 0;
-}
-
 export type OllamaPullRecommendation = {
-  /** `ollama pull` tag, e.g. `llama3.3:70b` */
+  /** `ollama pull` tag, e.g. `llama3.1:8b` */
   tag: string;
   title: string;
   approx_size_gb: number;
-  blurb: string;
+  /** Short GPU/RAM guidance (default Ollama quantisation). */
+  recommended_specs: string;
 };
 
-/**
- * Curated pulls for instruction-following + JSON (folder organize).
- * Ordered strongest-first among models most users can still run.
- * Ollama does not expose a “best model” API from the desktop app.
- */
+/** Consumer-friendly pulls for JSON folder-organize prompts. */
 export const OLLAMA_PULL_RECOMMENDATIONS: OllamaPullRecommendation[] = [
   {
-    tag: "llama3.3:70b",
-    title: "Llama 3.3 70B",
-    approx_size_gb: 43,
-    blurb: "Best quality for most people. Requires a powerful PC and about 43 GB of free space.",
+    tag: "llama3.1:8b",
+    title: "Llama 3.1 8B",
+    approx_size_gb: 5,
+    recommended_specs: "8 GB GPU (RTX 4060), 16 GB RAM",
   },
   {
-    tag: "llama3.1:405b",
-    title: "Llama 3.1 405B",
-    approx_size_gb: 231,
-    blurb: "Top tier, but huge—only try this if you have a very high-end machine.",
-  },
-  {
-    tag: "llama3.1:70b",
-    title: "Llama 3.1 70B",
-    approx_size_gb: 40,
-    blurb: "Still very capable if you want an alternative to Llama 3.3.",
+    tag: "qwen2.5:14b",
+    title: "Qwen 2.5 14B",
+    approx_size_gb: 9,
+    recommended_specs: "12 GB GPU (RTX 4070), 16 GB RAM",
   },
   {
     tag: "qwen2.5:32b",
     title: "Qwen 2.5 32B",
     approx_size_gb: 20,
-    blurb: "Good middle ground if 70B models are too heavy for your computer.",
-  },
-  {
-    tag: "llama3.1:8b",
-    title: "Llama 3.1 8B",
-    approx_size_gb: 5,
-    blurb: "Smaller download; results may be less accurate on big folders.",
+    recommended_specs: "24 GB GPU (RTX 4090), 32 GB RAM",
   },
 ];
 
@@ -65,13 +45,10 @@ export function is_ollama_tag_installed(installed: string[], tag: string): boole
   });
 }
 
-/** Suggest pulling a stronger model when nothing ~70B+ is installed. */
-export function should_suggest_stronger_ollama_pull(installed: string[]): boolean {
-  if (installed.length === 0) return true;
-  const max_params = Math.max(0, ...installed.map(parse_param_billions));
-  return max_params < 70;
-}
-
 export function format_ollama_pull_command(tag: string): string {
   return `ollama pull ${tag}`;
+}
+
+export function format_ollama_recommendation_specs(rec: OllamaPullRecommendation): string {
+  return `~${rec.approx_size_gb} GB download. Recommended: ${rec.recommended_specs}.`;
 }

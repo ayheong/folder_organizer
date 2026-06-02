@@ -1,12 +1,3 @@
-import {
-  format_ollama_pull_command,
-  get_primary_ollama_pull_recommendation,
-} from "./ollamaRecommendations";
-
-/** Fallback when no model is installed; matches primary pull recommendation. */
-export const DEFAULT_OLLAMA_MODEL_NAME =
-  get_primary_ollama_pull_recommendation().tag;
-
 const OLLAMA_BASE_URL =
   import.meta.env.VITE_OLLAMA_BASE_URL?.trim() || "http://127.0.0.1:11434";
 
@@ -26,8 +17,24 @@ type OllamaTagsResponse = {
   models: { name: string; size?: number }[];
 };
 
+export type OllamaChatMetrics = {
+  total_duration?: number;
+  load_duration?: number;
+  prompt_eval_count?: number;
+  prompt_eval_duration?: number;
+  eval_count?: number;
+  eval_duration?: number;
+};
+
 type OllamaChatResponse = {
+  model?: string;
   message: { content: string };
+} & OllamaChatMetrics;
+
+export type OllamaChatResult = {
+  content: string;
+  model: string;
+  metrics: OllamaChatMetrics;
 };
 
 async function ollama_request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -37,23 +44,6 @@ async function ollama_request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(detail || `Ollama request failed (${response.status})`);
   }
   return response.json() as Promise<T>;
-}
-
-/** Parameter count parsed from names like `llama3.1:8b` or `qwen2.5-14b`. */
-export function parse_model_param_billions(name: string): number {
-  const match = name.match(/(\d+(?:\.\d+)?)\s*b/i);
-  return match ? Number.parseFloat(match[1]) : 0;
-}
-
-/** Prefer largest on-disk model, then highest parameter count in the name. */
-export function pick_strongest_ollama_model(models: OllamaModelInfo[]): string {
-  if (models.length === 0) return DEFAULT_OLLAMA_MODEL_NAME;
-  const sorted = [...models].sort((a, b) => {
-    const size_diff = b.size - a.size;
-    if (size_diff !== 0) return size_diff;
-    return parse_model_param_billions(b.name) - parse_model_param_billions(a.name);
-  });
-  return sorted[0].name;
 }
 
 export async function list_ollama_model_infos(): Promise<OllamaModelInfo[]> {
@@ -75,39 +65,19 @@ export function resolve_model_name(
 ): string {
   const trimmed = wanted?.trim();
   if (!trimmed) {
-    if (installed?.length) {
-      return pick_strongest_ollama_model(
-        installed.map((name) => ({ name, size: 0 })),
-      );
-    }
-    return DEFAULT_OLLAMA_MODEL_NAME;
+    throw new Error("Select an Ollama model first.");
   }
-  if (installed?.includes(trimmed)) return trimmed;
-  if (installed?.length) {
-    return pick_strongest_ollama_model(
-      installed.map((name) => ({ name, size: 0 })),
-    );
+  if (installed?.length && !installed.includes(trimmed)) {
+    throw new Error(`Ollama model "${trimmed}" is not installed.`);
   }
   return trimmed;
-}
-
-export async function resolve_installed_model(wanted?: string): Promise<string> {
-  const models = await list_ollama_model_infos();
-  if (models.length === 0) {
-    throw new Error(
-      `No Ollama model found. Run: ${format_ollama_pull_command(get_primary_ollama_pull_recommendation().tag)}`,
-    );
-  }
-  const trimmed = wanted?.trim();
-  if (trimmed && models.some((m) => m.name === trimmed)) return trimmed;
-  return pick_strongest_ollama_model(models);
 }
 
 export async function call_ollama(
   message: string,
   model_name?: string,
   installed?: string[],
-): Promise<string> {
+): Promise<OllamaChatResult> {
   const model = resolve_model_name(model_name, installed);
 
   try {
@@ -124,7 +94,18 @@ export async function call_ollama(
     });
     const content = data.message.content;
     if (!content) throw new Error("Ollama response contained no content");
-    return content;
+    return {
+      content,
+      model: data.model ?? model,
+      metrics: {
+        total_duration: data.total_duration,
+        load_duration: data.load_duration,
+        prompt_eval_count: data.prompt_eval_count,
+        prompt_eval_duration: data.prompt_eval_duration,
+        eval_count: data.eval_count,
+        eval_duration: data.eval_duration,
+      },
+    };
   } catch (e) {
     const detail = e instanceof Error ? ` ${e.message}` : "";
     throw new Error(
