@@ -5,7 +5,6 @@ import {
 } from "../constants";
 import type { TreeNode } from "../types";
 
-/** Matches visible rows in TerminalPanel for the current collapse state. */
 export function count_visible_terminal_tree_lines(
   folderContents: TreeNode[],
   collapsedKeys: Set<string>,

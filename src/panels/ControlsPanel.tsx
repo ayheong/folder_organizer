@@ -235,7 +235,7 @@ export function ControlsPanel({
             disabled={busy}
           />
           <p className="panel-controls__api-key-hint">
-            Stored only on this device.{" "}
+            Not saved after you close the app.{" "}
             <a
               className="panel-controls__api-key-link"
               href="https://console.anthropic.com/settings/keys"

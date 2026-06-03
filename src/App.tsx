@@ -9,7 +9,8 @@ import {
   MAX_FILES_TO_ORGANIZE,
   DEFAULT_SKIP_DIR_NAME_SET,
 } from "./constants";
-import { build_apply_confirm_message, COPY } from "./copy";
+import { build_apply_confirm_message } from "./lib/applyMessages";
+import { COPY } from "./copy";
 import {
   count_visible_terminal_tree_lines,
   tree_reveal_animation_ms,
@@ -17,14 +18,16 @@ import {
 import { ControlsPanel } from "./panels/ControlsPanel";
 import { ProposedChangesPanel } from "./panels/ProposedChangesPanel";
 import { TerminalPanel } from "./panels/TerminalPanel";
-import { apply_changes, ApplyValidationError } from "./lib/applyChanges";
+import {
+  apply_changes,
+  apply_path_context_from_tree,
+  ApplyValidationError,
+} from "./lib/applyChanges";
 import type { ApplyChangesResult } from "./lib/applyChanges";
-import { flatten_tree_to_file_paths } from "./lib/folderPaths";
 import { organize_folder } from "./lib/claude";
 import {
+  clear_legacy_claude_api_key_storage,
   has_claude_api_key,
-  load_claude_api_key,
-  save_claude_api_key,
 } from "./lib/claudeApiKey";
 import type { Change, OrganizeResult, TreeNode } from "./types";
 import "./App.css";
@@ -54,7 +57,6 @@ function format_byte_size(bytes: number): string {
   return `${n.toFixed(digits)} ${units[i]}`;
 }
 
-/** Counts every file and directory node under the current tree (recursive). */
 function count_tree_nodes(nodes: TreeNode[]): { files: number; dirs: number } {
   let files = 0;
   let dirs = 0;
@@ -99,7 +101,7 @@ function App() {
   const [filesFoundCount, setFilesFoundCount] = useState(0);
   const [folderTotalBytes, setFolderTotalBytes] = useState<number | null>(null);
   const [userPreferences, setUserPreferences] = useState("");
-  const [claudeApiKey, setClaudeApiKey] = useState(() => load_claude_api_key());
+  const [claudeApiKey, setClaudeApiKey] = useState("");
   const [organizeResult, setOrganizeResult] = useState<OrganizeResult | null>(null);
   const [isProposingChanges, setIsProposingChanges] = useState(false);
   const [isApplyingChanges, setIsApplyingChanges] = useState(false);
@@ -113,6 +115,10 @@ function App() {
   const [selectedOllamaModel, setSelectedOllamaModel] = useState("");
   const [ollamaModelsLoading, setOllamaModelsLoading] = useState(false);
   const [ollamaListError, setOllamaListError] = useState<string | null>(null);
+
+  useEffect(() => {
+    clear_legacy_claude_api_key_storage();
+  }, []);
 
   useEffect(() => {
     if (!isScanningFolder) {
@@ -338,7 +344,7 @@ function App() {
       const report = await apply_changes(
         selectedFolder,
         selectedChanges,
-        flatten_tree_to_file_paths(folderContents),
+        apply_path_context_from_tree(folderContents),
       );
       setApplyReport(report);
       setOrganizeResult(null);
@@ -376,11 +382,6 @@ function App() {
   const totalSizeLabel =
     showStats && folderTotalBytes != null ? format_byte_size(folderTotalBytes) : "—";
 
-  function update_claude_api_key(value: string) {
-    setClaudeApiKey(value);
-    save_claude_api_key(value);
-  }
-
   return (
     <div className="app-shell">
       <ControlsPanel
@@ -395,7 +396,7 @@ function App() {
         userPreferences={userPreferences}
         onUserPreferencesChange={setUserPreferences}
         claudeApiKey={claudeApiKey}
-        onClaudeApiKeyChange={update_claude_api_key}
+        onClaudeApiKeyChange={setClaudeApiKey}
         hasClaudeApiKey={has_claude_api_key(claudeApiKey)}
         modelHost={modelHost}
         onModelHostChange={setModelHost}
@@ -432,6 +433,9 @@ function App() {
         proposeError={proposeError}
         onAccept={apply_changes_click}
         onReject={reject_proposed_changes}
+        scanTruncated={scanTruncated}
+        scannedFileCount={filesFoundCount}
+        userPreferences={userPreferences}
       />
     </div>
   );

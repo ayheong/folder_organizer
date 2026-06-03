@@ -9,7 +9,6 @@ import type { Change, TreeNode } from "../types";
 
 export const PREVIEW_ROOT_KEY = "preview:root";
 
-/** AI-proposed deletes start marked for deletion in the preview. */
 export function initial_pending_deletes_from_changes(changes: Change[]): Set<string> {
   const pending = new Set<string>();
   for (const change of changes) {
@@ -20,7 +19,6 @@ export function initial_pending_deletes_from_changes(changes: Change[]): Set<str
   return pending;
 }
 
-/** One file in the post-apply preview (stable identity = sourcePath on disk). */
 export type PreviewFileEntry = {
   sourcePath: string;
   displayPath: string;
@@ -42,7 +40,6 @@ export function basename(path: string): string {
   return parts[parts.length - 1] ?? path;
 }
 
-/** Parent directory path relative to scan root (empty string = root). */
 export function parent_folder_path(displayPath: string): string {
   const parts = split_path(displayPath);
   parts.pop();
@@ -59,7 +56,6 @@ function sort_tree_nodes(nodes: TreeNode[]): void {
   }
 }
 
-/** Build preview rows from scan + AI changes + optional manual path overrides. */
 export function build_preview_entries(
   folderContents: TreeNode[],
   changes: Change[],
@@ -110,7 +106,6 @@ export function build_preview_entries(
   return entries;
 }
 
-/** Flat file paths → TreeNode tree (folders inferred from paths). */
 export function preview_entries_to_tree(entries: PreviewFileEntry[]): TreeNode[] {
   const root: TreeNode[] = [];
 
@@ -199,7 +194,6 @@ export function count_visible_preview_tree_lines(
   return count;
 }
 
-/** Move a file to a folder (or root if folderPath empty). Returns new display path. */
 export function move_preview_file_to_folder(
   _sourcePath: string,
   currentDisplayPath: string,
@@ -210,13 +204,15 @@ export function move_preview_file_to_folder(
   return join_path(normalized_folder, name);
 }
 
-/** Changes to apply: AI proposals (with overrides), manual moves, and pending deletes. */
 export function derive_apply_changes(
   changes: Change[],
   pathOverrides: Map<string, string>,
   folderContents: TreeNode[],
   pendingDeletes: Set<string>,
 ): Change[] {
+  const file_paths = flatten_tree_to_file_paths(folderContents);
+  const file_index = build_path_index(file_paths);
+  const directory_paths = list_directory_paths(folderContents);
   const entries = build_preview_entries(
     folderContents,
     changes,
@@ -224,6 +220,11 @@ export function derive_apply_changes(
     pendingDeletes,
   );
   const apply: Change[] = [];
+
+  function resolved_to(sourcePath: string, rawTo: string | undefined): string | null {
+    if (!rawTo?.trim()) return null;
+    return resolve_move_destination_path(sourcePath, rawTo, file_index, directory_paths);
+  }
 
   for (const entry of entries) {
     if (pendingDeletes.has(entry.sourcePath)) {
@@ -239,18 +240,19 @@ export function derive_apply_changes(
       if (base.type === "delete") {
         continue;
       }
-      const to = override ?? base.to;
-      if (to && to !== base.from) {
-        apply.push({ ...base, to });
+      const toPath = resolved_to(entry.sourcePath, override ?? base.to);
+      if (toPath && normalize_slashes(toPath) !== entry.sourcePath) {
+        apply.push({ ...base, from: entry.sourcePath, to: toPath });
       }
       continue;
     }
 
-    if (override && override !== entry.sourcePath) {
+    const toPath = resolved_to(entry.sourcePath, override);
+    if (toPath && normalize_slashes(toPath) !== entry.sourcePath) {
       apply.push({
         type: "move",
         from: entry.sourcePath,
-        to: override,
+        to: toPath,
       });
     }
   }
@@ -258,7 +260,6 @@ export function derive_apply_changes(
   return apply;
 }
 
-/** Update working copy of AI changes when user drags a proposed file. */
 export function apply_override_to_working_changes(
   workingChanges: Change[],
   sourcePath: string,

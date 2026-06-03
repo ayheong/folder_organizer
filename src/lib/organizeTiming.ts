@@ -1,11 +1,6 @@
 import type { OrganizeTiming } from "../types";
 
-export function ns_to_ms(ns: number | undefined): number | undefined {
-  if (ns == null || !Number.isFinite(ns)) return undefined;
-  return ns / 1_000_000;
-}
-
-export function format_duration_ms(ms: number): string {
+function format_duration_ms(ms: number): string {
   if (!Number.isFinite(ms) || ms < 0) return "—";
   if (ms < 1000) return `${Math.round(ms)}ms`;
   const sec = Math.floor(ms / 1000);
@@ -13,20 +8,6 @@ export function format_duration_ms(ms: number): string {
   const min = Math.floor(sec / 60);
   const rem = sec % 60;
   return rem > 0 ? `${min}m ${rem}s` : `${min}m`;
-}
-
-export function format_organize_timing_summary(timing: OrganizeTiming): string {
-  const parts = [`${format_duration_ms(timing.wall_ms)} total`];
-  if (timing.ollama) {
-    const { output_tokens, tokens_per_sec, load_ms, total_ms } = timing.ollama;
-    if (load_ms >= 500) parts.push(`${format_duration_ms(load_ms)} load`);
-    if (output_tokens > 0 && tokens_per_sec != null) {
-      parts.push(`${output_tokens} out @ ${tokens_per_sec.toFixed(1)} tok/s`);
-    } else if (total_ms != null) {
-      parts.push(`model ${format_duration_ms(total_ms)}`);
-    }
-  }
-  return parts.join(" · ");
 }
 
 export function log_organize_timing(timing: OrganizeTiming): void {

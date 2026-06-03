@@ -22,6 +22,7 @@ type PreviewLayoutTreeViewProps = {
   entries: PreviewFileEntry[];
   previewTree: TreeNode[];
   rootLabel: string;
+  collapseResetKey?: number;
   onMoveFile: (sourcePath: string, newDisplayPath: string) => void;
   onToggleDelete: (sourcePath: string) => void;
   disabled: boolean;
@@ -71,6 +72,7 @@ export function PreviewLayoutTreeView({
   entries,
   previewTree,
   rootLabel,
+  collapseResetKey = 0,
   onMoveFile,
   onToggleDelete,
   disabled,
@@ -169,7 +171,6 @@ export function PreviewLayoutTreeView({
           element.releasePointerCapture(event.pointerId);
         }
       } catch {
-        /* pointer may already be released */
       }
       pointer_capture_ref.current = null;
     }
@@ -233,7 +234,7 @@ export function PreviewLayoutTreeView({
 
   useEffect(() => {
     setCollapsedKeys(new Set());
-  }, [previewTree]);
+  }, [collapseResetKey]);
 
   function toggle_folder(key: string) {
     setCollapsedKeys((prev) => {

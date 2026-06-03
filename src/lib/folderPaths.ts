@@ -1,11 +1,9 @@
 import type { Change, TreeNode } from "../types";
 
-// \ --> /
 export function normalize_slashes(path: string): string {
   return path.replace(/\\/g, "/").replace(/^\.\//, "");
 }
 
-/** Collects file paths only (excludes directories). Used for AI proposals and apply "from" resolution. */
 export function flatten_tree_to_file_paths(
   nodes: TreeNode[],
   prefix = "",
@@ -24,7 +22,6 @@ export function flatten_tree_to_file_paths(
   return paths;
 }
 
-/** Lists existing directory paths relative to the scan root. */
 export function list_directory_paths(nodes: TreeNode[], prefix = ""): string[] {
   const dirs: string[] = [];
   for (const node of nodes) {
@@ -42,30 +39,26 @@ export function build_path_index(paths: string[]): Set<string> {
   return new Set(paths.map((path) => normalize_slashes(path)));
 }
 
-/**
- * Maps a model-provided path to an exact path from the scan index.
- * Prefers exact match, then case-insensitive, then unique basename match.
- */
-export function resolve_path_in_index(
+function resolve_path_in_index(
   requested: string,
   index: Set<string>,
 ): string | null {
-  const normalized = normalize_slashes(requested.trim());  // \ --> /
+  const normalized = normalize_slashes(requested.trim());
   if (!normalized) return null;
 
-  if (index.has(normalized)) return normalized;  // exact match
+  if (index.has(normalized)) return normalized;
 
-  const lower = normalized.toLowerCase();  // case-insensitive match
-  const case_insensitive = [...index].filter((path) => path.toLowerCase() === lower);  // compare 
-  if (case_insensitive.length === 1) return case_insensitive[0];  // if one match, return
+  const lower = normalized.toLowerCase();
+  const case_insensitive = [...index].filter((path) => path.toLowerCase() === lower);
+  if (case_insensitive.length === 1) return case_insensitive[0];
 
-  const basename = normalized.split("/").pop() ?? normalized;  // get last part of path
+  const basename = normalized.split("/").pop() ?? normalized;
   const basename_matches = [...index].filter(
-    (path) => (path.split("/").pop() ?? path).toLowerCase() === basename.toLowerCase(),  // compare 
+    (path) => (path.split("/").pop() ?? path).toLowerCase() === basename.toLowerCase(),
   );
-  if (basename_matches.length === 1) return basename_matches[0];  // if one match, return
+  if (basename_matches.length === 1) return basename_matches[0];
 
-  return null;  // no match
+  return null;
 }
 
 function join_relative_path(dir: string, fileName: string): string {
@@ -78,10 +71,20 @@ function basename_from_path(path: string): string {
   return parts[parts.length - 1] ?? path;
 }
 
-/**
- * When the model's "to" is a folder path (e.g. "Downloads"), append the source file name
- * so the preview does not show a phantom file called "Downloads" beside the real folder.
- */
+/** Keep the source filename; only the folder path may change. */
+export function preserve_move_filename(from: string, to: string): string {
+  const from_norm = normalize_slashes(from);
+  const to_norm = normalize_slashes(to.trim()).replace(/\/+$/, "");
+  const source_name = basename_from_path(from_norm);
+  if (!to_norm) return to_norm;
+
+  const parts = to_norm.split("/").filter(Boolean);
+  if (parts.length === 0) return source_name;
+
+  parts[parts.length - 1] = source_name;
+  return parts.join("/");
+}
+
 export function resolve_move_destination_path(
   from: string,
   requestedTo: string,
@@ -114,53 +117,53 @@ export function resolve_move_destination_path(
   return to;
 }
 
-/** Resolves "to" paths: exact match only if already in the folder; otherwise keeps the new path. */
-function resolve_destination_path(
-  from: string,
-  requested: string,
-  index: Set<string>,
-  directoryPaths: string[],
-): string {
-  return resolve_move_destination_path(from, requested, index, directoryPaths);
-}
-
 export function normalize_changes_against_index(
   changes: Change[],
   index: Set<string>,
   directoryPaths: string[] = [],
 ): { changes: Change[]; unresolved: string[] } {
-  const unresolved: string[] = [];  // paths that were not found in the index
-  const normalized: Change[] = [];  // changes that were resolved against the index
+  const unresolved: string[] = [];
+  const normalized: Change[] = [];
 
   for (const change of changes) {
-    const from_resolved = resolve_path_in_index(change.from, index);  // try to match path to index
+    const from_resolved = resolve_path_in_index(change.from, index);
     if (!from_resolved) {
-      unresolved.push(change.from);  // if no match, add to unresolved
+      unresolved.push(change.from);
       continue;
     }
 
     if (change.type === "delete") {
-      normalized.push({ ...change, from: from_resolved });  // if delete, add to normalized
+      normalized.push({ type: "delete", from: from_resolved });
+      continue;
+    }
+
+    if (change.type !== "move") {
       continue;
     }
 
     if (!change.to) {
-      unresolved.push(`${change.from} (missing destination)`);  // if missing destination, add to unresolved
+      unresolved.push(`${change.from} (missing destination)`);
       continue;
     }
 
-    const to_path = resolve_destination_path(
+    const to_path = preserve_move_filename(
       from_resolved,
-      change.to,
-      index,
-      directoryPaths,
+      resolve_move_destination_path(
+        from_resolved,
+        change.to,
+        index,
+        directoryPaths,
+      ),
     );
-    normalized.push({  // if rename or move, add to normalized
-      ...change,
+    if (normalize_slashes(to_path) === normalize_slashes(from_resolved)) {
+      continue;
+    }
+    normalized.push({
+      type: "move",
       from: from_resolved,
       to: to_path,
     });
   }
 
-  return { changes: normalized, unresolved };  // return the normalized changes and unresolved paths
+  return { changes: normalized, unresolved };
 }

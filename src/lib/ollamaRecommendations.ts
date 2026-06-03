@@ -1,13 +1,10 @@
 export type OllamaPullRecommendation = {
-  /** `ollama pull` tag, e.g. `llama3.1:8b` */
   tag: string;
   title: string;
   approx_size_gb: number;
-  /** Short GPU/RAM guidance (default Ollama quantisation). */
   recommended_specs: string;
 };
 
-/** Consumer-friendly pulls for JSON folder-organize prompts. */
 export const OLLAMA_PULL_RECOMMENDATIONS: OllamaPullRecommendation[] = [
   {
     tag: "llama3.1:8b",
@@ -33,7 +30,6 @@ export function get_primary_ollama_pull_recommendation(): OllamaPullRecommendati
   return OLLAMA_PULL_RECOMMENDATIONS[0];
 }
 
-/** True if this exact tag (or same base + :latest) is already installed. */
 export function is_ollama_tag_installed(installed: string[], tag: string): boolean {
   const [base, variant] = tag.includes(":") ? tag.split(":", 2) : [tag, "latest"];
   return installed.some((name) => {

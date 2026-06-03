@@ -1,23 +1,10 @@
-const STORAGE_KEY = "folder_organizer_anthropic_api_key";
+const LEGACY_STORAGE_KEY = "folder_organizer_anthropic_api_key";
 
-export function load_claude_api_key(): string {
+/** Remove a key saved by older app versions. */
+export function clear_legacy_claude_api_key_storage(): void {
   try {
-    return localStorage.getItem(STORAGE_KEY)?.trim() ?? "";
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
   } catch {
-    return "";
-  }
-}
-
-export function save_claude_api_key(key: string): void {
-  try {
-    const trimmed = key.trim();
-    if (trimmed) {
-      localStorage.setItem(STORAGE_KEY, trimmed);
-    } else {
-      localStorage.removeItem(STORAGE_KEY);
-    }
-  } catch {
-    // localStorage may be unavailable
   }
 }
 

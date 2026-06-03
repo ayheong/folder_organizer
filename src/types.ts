@@ -4,12 +4,11 @@ export type TreeNode = {
   isFile: boolean;
   isSymlink: boolean;
   children?: TreeNode[];
-  /** Set on preview-tree file nodes so each row maps to exactly one scanned file. */
   previewSourcePath?: string;
 };
 
 export type Change = {
-  type: "rename" | "move" | "delete";
+  type: "move" | "delete";
   from: string;
   to?: string;
 };
@@ -36,6 +35,4 @@ export type OrganizeTiming = {
 
 export type OrganizeResult = {
   changes: Change[];
-  unresolved?: string[];
-  timing?: OrganizeTiming;
 };

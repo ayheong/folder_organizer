@@ -10,8 +10,14 @@ import {
   preview_entries_to_tree,
 } from "../lib/previewLayout";
 import { tree_reveal_animation_ms } from "../lib/terminalTreeLines";
-import { COPY, format_apply_report_message } from "../copy";
+import { format_apply_report_message } from "../lib/applyMessages";
+import { COPY } from "../copy";
+import { MAX_FILES_TO_ORGANIZE } from "../constants";
 import { normalize_slashes } from "../lib/folderPaths";
+import {
+  filter_disallowed_deletes,
+  user_disallows_deletes,
+} from "../lib/organizePrompt";
 import type { Change, OrganizeResult, TreeNode } from "../types";
 import { PreviewLayoutTreeView } from "./PreviewLayoutTreeView";
 
@@ -25,6 +31,9 @@ type ProposedChangesPanelProps = {
   applyReport?: ApplyChangesResult | null;
   applyError?: string | null;
   proposeError?: string | null;
+  scanTruncated?: boolean;
+  scannedFileCount?: number;
+  userPreferences?: string;
   onAccept: (selectedChanges: Change[]) => void;
   onReject: () => void;
 };
@@ -39,6 +48,9 @@ export function ProposedChangesPanel({
   applyReport = null,
   applyError = null,
   proposeError = null,
+  scanTruncated = false,
+  scannedFileCount = 0,
+  userPreferences = "",
   onAccept,
   onReject,
 }: ProposedChangesPanelProps) {
@@ -47,6 +59,7 @@ export function ProposedChangesPanel({
   const [pendingDeletes, setPendingDeletes] = useState<Set<string>>(() => new Set());
   const [pathOverrides, setPathOverrides] = useState<Map<string, string>>(new Map());
   const [workingChanges, setWorkingChanges] = useState<Change[]>([]);
+  const [previewSession, setPreviewSession] = useState(0);
   const [isTreeRevealing, setIsTreeRevealing] = useState(false);
 
   const changes_for_preview =
@@ -85,11 +98,24 @@ export function ProposedChangesPanel({
   const show_waiting_for_preview = Boolean(selectedFolder) && !has_proposal && !busy;
 
   useEffect(() => {
-    const changes = organizeResult?.changes ?? [];
+    if (!organizeResult) {
+      setPendingDeletes(new Set());
+      setPathOverrides(new Map());
+      setWorkingChanges([]);
+      return;
+    }
+    const changes = organizeResult.changes ?? [];
     setPendingDeletes(initial_pending_deletes_from_changes(changes));
     setPathOverrides(new Map());
     setWorkingChanges(changes);
+    setPreviewSession((session) => session + 1);
   }, [organizeResult]);
+
+  useEffect(() => {
+    if (!user_disallows_deletes(userPreferences)) return;
+    setWorkingChanges((prev) => filter_disallowed_deletes(prev, userPreferences));
+    setPendingDeletes(new Set());
+  }, [userPreferences]);
 
   useEffect(() => {
     if (!organizeResult || !show_preview) {
@@ -141,6 +167,16 @@ export function ProposedChangesPanel({
     onAccept(apply_changes);
   }
 
+  function handle_reject() {
+    setPendingDeletes(new Set());
+    setPathOverrides(new Map());
+    setWorkingChanges([]);
+    onReject();
+  }
+
+  const show_partial_scan_warning =
+    show_preview && scanTruncated && scannedFileCount > 0;
+
   return (
     <section className="panel panel--changes" aria-label={COPY.preview.ariaLabel}>
       <header className="panel-terminal__titlebar">
@@ -164,15 +200,29 @@ export function ProposedChangesPanel({
               {proposeError}
             </p>
           ) : show_preview ? (
-            <PreviewLayoutTreeView
-              entries={preview_entries}
-              previewTree={preview_tree}
-              rootLabel={rootTreeLabel}
-              onMoveFile={handle_move_file}
-              onToggleDelete={handle_toggle_delete}
-              disabled={busy}
-              isTreeRevealing={isTreeRevealing}
-            />
+            <>
+              {show_partial_scan_warning ? (
+                <p
+                  className="panel-changes__apply-msg panel-changes__apply-msg--warn"
+                  role="status"
+                >
+                  {COPY.preview.partialScanWarning(
+                    scannedFileCount,
+                    MAX_FILES_TO_ORGANIZE,
+                  )}
+                </p>
+              ) : null}
+              <PreviewLayoutTreeView
+                entries={preview_entries}
+                previewTree={preview_tree}
+                rootLabel={rootTreeLabel}
+                collapseResetKey={previewSession}
+                onMoveFile={handle_move_file}
+                onToggleDelete={handle_toggle_delete}
+                disabled={busy}
+                isTreeRevealing={isTreeRevealing}
+              />
+            </>
           ) : applyReport || applyError ? null : (
             <p className="panel-changes__placeholder">{COPY.preview.emptyReady}</p>
           )}
@@ -210,7 +260,7 @@ export function ProposedChangesPanel({
             <button
               type="button"
               className="panel-changes__btn panel-changes__btn--reject"
-              onClick={onReject}
+              onClick={handle_reject}
               disabled={busy || !has_proposal}
             >
               {COPY.preview.startOver}

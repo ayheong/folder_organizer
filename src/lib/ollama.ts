@@ -3,7 +3,6 @@ import { COPY } from "../copy";
 const OLLAMA_BASE_URL =
   import.meta.env.VITE_OLLAMA_BASE_URL?.trim() || "http://127.0.0.1:11434";
 
-/** Ollama defaults to temperature 0.8; lower values stabilize JSON + path copying. */
 const OLLAMA_ORGANIZE_CHAT_OPTIONS = {
   temperature: 0.2,
   top_p: 0.9,
@@ -19,7 +18,7 @@ type OllamaTagsResponse = {
   models: { name: string; size?: number }[];
 };
 
-export type OllamaChatMetrics = {
+type OllamaChatMetrics = {
   total_duration?: number;
   load_duration?: number;
   prompt_eval_count?: number;
@@ -33,7 +32,7 @@ type OllamaChatResponse = {
   message: { content: string };
 } & OllamaChatMetrics;
 
-export type OllamaChatResult = {
+type OllamaChatResult = {
   content: string;
   model: string;
   metrics: OllamaChatMetrics;
@@ -56,12 +55,7 @@ export async function list_ollama_model_infos(): Promise<OllamaModelInfo[]> {
   }));
 }
 
-export async function list_ollama_models(): Promise<string[]> {
-  const models = await list_ollama_model_infos();
-  return models.map((m) => m.name);
-}
-
-export function resolve_model_name(
+function resolve_model_name(
   wanted: string | undefined,
   installed?: string[],
 ): string {
